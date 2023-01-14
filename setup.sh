@@ -1,0 +1,2 @@
+cd uiCA
+./setup.sh
