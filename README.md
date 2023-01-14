@@ -16,6 +16,23 @@ t = o.run()
 print(t)
 ```
 
+Installation:
+=============
+
+To install the package locally run:
+```bash
+git clone --recursive https://github.com/FloydZ/uiCA_wrapper
+cd uiCA_Wrapper
+./setup.sh
+```
+
+Note the `setup.sh`. This is needed to build `uiCA`.
+If you are a windoof user you can instead run 
+```bash
+cd uiCA_Wrapper/uiCA/
+./setup.cmd
+```
+
 Restrictions:
 =============
 
