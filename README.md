@@ -36,5 +36,12 @@ cd uiCA_Wrapper/uiCA/
 Restrictions:
 =============
 
-Currenlty the throughput is calculated by the wrapper class. Everything else
+Currently, the throughput is calculated by the wrapper class. Everything else
 is ignored.
+
+TODO:
+=====
+
+llvm_mca wrapper: 
+- pass all global information to the code regions, s.t. the same views can be generated.
+- instruction: add information like throughput, latency. get from another python package
