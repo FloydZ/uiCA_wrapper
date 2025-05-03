@@ -29,7 +29,8 @@ def test_cpu():
 def test_execute():
     """ """
     a = LLVM_MCA("files/avx_short.s")
-    print(a.execute())
+    t = a.execute()
+    print(t)
 
 
 def test_simple():

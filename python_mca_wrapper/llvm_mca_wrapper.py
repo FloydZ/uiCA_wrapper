@@ -11,7 +11,13 @@ from types import SimpleNamespace
 
 
 class SimulationParameters:
-    """wrapper around the output field of `llvm-mca` """
+    """wrapper around the output field of `llvm-mca` 
+    "SimulationParameters": {
+        "-march": "i386",
+        "-mcpu": "znver4",
+        "-mtriple": "i386-unknown-linux-gnu"
+    },  
+    """
     def __init__(self, parsed):
         """
         :param parsed: 
@@ -39,12 +45,46 @@ class SimulationParameters:
         """
         return self.__triple
 
-    def __str__(self):
+    def __str__(self) -> str:
         return str(self.__parsed)
+
+    def __repr__(self) -> str:
+        return str(self.__dict__)
 
 
 class TargetInfo:
-    """wrapper around the output field with the same name"""
+    """wrapper around the output field with the same name.
+    Something like this:
+
+     "TargetInfo": {
+        "CPUName": "znver4",
+        "Resources": [
+            "Zn4AGU0",
+            "Zn4AGU1",
+            "Zn4AGU2",
+            "Zn4ALU0",
+            "Zn4ALU1",
+            "Zn4ALU2",
+            "Zn4ALU3",
+            "Zn4BRU1",
+            "Zn4FP0",
+            "Zn4FP1",
+            "Zn4FP2",
+            "Zn4FP3",
+            "Zn4FP45.\u0000",
+            "Zn4FP45.\u0001",
+            "Zn4FPSt",
+            "Zn4LSU.\u0000",
+            "Zn4LSU.\u0001",
+            "Zn4LSU.\u0002",
+            "Zn4Load.\u0000",
+            "Zn4Load.\u0001",
+            "Zn4Load.\u0002",
+            "Zn4Store.\u0000",
+            "Zn4Store.\u0001"
+        ]
+    }
+    """
     def __init__(self, parsed):
         """ """
         self.__parsed = vars(parsed)
@@ -62,83 +102,151 @@ class TargetInfo:
     def __str__(self):
         return str(self.__parsed)
 
+    def __repr__(self) -> str:
+        return str(self.__dict__)
+
 
 class StallDispatchStatistic:
-    """ """
+    """
+
+    :param group:
+    :param lq: load queue
+    :param rat: register unavailable
+    :param rcu: retire tokens unavailable
+    :param schedq: scheduler full
+    :param sq: storage queue full
+    :param ush: uncategorized structural hazard
+    """
     def __init__(self, parsed):
         self.__parsed = vars(parsed)
         # TODO wa ist das
 
         # stall information: why an instruction was stalled
-        # static restrictions on the dispatch gropu
-        self.__group = self.__parsed["GROUP"]
+        # static restrictions on the dispatch group
+        self.group = self.__parsed["GROUP"]
         # load queue full
-        self.__lq = self.__parsed["LQ"]
+        self.lq = self.__parsed["LQ"]
         # register unavailable
-        self.__rat = self.__parsed["RAT"]
+        self.rat = self.__parsed["RAT"]
         # retire tokens unavailable
-        self.__rcu = self.__parsed["RCU"]
+        self.rcu = self.__parsed["RCU"]
         # scheduler full
-        self.__schedq = self.__parsed["SCHEDQ"]
+        self.schedq = self.__parsed["SCHEDQ"]
         # store queue full
-        self.__sq = self.__parsed["SQ"]
+        self.sq = self.__parsed["SQ"]
         # uncategorized structural hazard
-        self.__ush = self.__parsed["USH"]
+        self.ush = self.__parsed["USH"]
+
+    def __repr__(self) -> str:
+        return str(self.__dict__)
 
 
 class Instruction:
     def __init__(self, parsed, assembly: str):
         self.__parsed = vars(parsed)
         self.__assembly = assembly
-        self__instruction = self.__parsed["Instruction"]
-        self__latency = self.__parsed["Latency"]
-        self__NumMicroOpcodes = self.__parsed["NumMicroOpcodes"]
-        self__RThroughput = self.__parsed["RThroughput"]
-        self__hasUnmodeledSideEffects = self.__parsed["hasUnmodeledSideEffects"]
-        self__mayLoad = self.__parsed["mayLoad"]
-        self__mayStore = self.__parsed["mayStore"]
+        self.instruction = self.__parsed["Instruction"]
+        self.latency = self.__parsed["Latency"]
+        self.NumMicroOpcodes = self.__parsed["NumMicroOpcodes"]
+        self.RThroughput = self.__parsed["RThroughput"]
+        self.hasUnmodeledSideEffects = self.__parsed["hasUnmodeledSideEffects"]
+        self.mayLoad = self.__parsed["mayLoad"]
+        self.mayStore = self.__parsed["mayStore"]
+
+    def __repr__(self) -> str:
+        return str(self.__dict__)
 
 
 class ResourcePressureInfo:
+    """
+    Something like:
+    {
+        "InstructionIndex": 0,
+        "ResourceIndex": 8,
+        "ResourceUsage": 0.5
+    },
+    """
     def __init__(self, parsed):
         self.__parsed = vars(parsed)
-        self.__instruction_index = self.__parsed["InstructionIndex"]
-        self.__resource_index = self.__parsed["ResourceIndex"]
-        self.__resource_usage = self.__parsed["ResourceUsage"]
+        self.instruction_index = self.__parsed["InstructionIndex"]
+        self.resource_index = self.__parsed["ResourceIndex"]
+        self.resource_usage = self.__parsed["ResourceUsage"]
+
+    def __repr__(self) -> str:
+        return str(self.__dict__)
 
 
 class ResourcePressureView:
+    """
+    Something like this
+    "ResourcePressureView": {
+        "ResourcePressureInfo": [
+            {
+                "InstructionIndex": 0,
+                "ResourceIndex": 8,
+                "ResourceUsage": 0.5
+            },
+            ...
+            {
+                "InstructionIndex": 3,
+                "ResourceIndex": 10,
+                "ResourceUsage": 4
+            }
+        ]
+    },
+    """
     def __init__(self, parsed):
         self.__parsed = vars(parsed)
-        self.__resource_pressure_info = [ResourcePressureInfo(a) for a in self.__parsed["ResourcePressureView"]]
+        self.resource_pressure_info = [ResourcePressureInfo(a) for a in self.__parsed["ResourcePressureView"]]
 
 
 class SummaryView:
+    """
+    "SummaryView": {
+        "BlockRThroughput": 4,
+        "DispatchWidth": 6,
+        "IPC": 0.73529411764705888,
+        "Instructions": 300,
+        "Iterations": 100,
+        "TotalCycles": 408,
+        "TotaluOps": 700,
+        "uOpsPerCycle": 1.7156862745098038
+    },
+    """
     def __init__(self, parsed):
         self.__parsed = vars(parsed)
-        self.__block_rt_throughput = self.__parsed["BlockRThroughput"]
-        self.__dispatch_width = self.__parsed["DispatchWidth"]
-        self.__ipc = self.__parsed["IPC"]
-        self.__instructions = self.__parsed["Instructions"]
-        self.__iterations = self.__parsed["Iterations"]
-        self.__total_uops = self.__parsed["TotaluOps"]
-        self.__uops_per_cycle = self.__parsed["uOpsPerCycle"]
+        self.block_rt_throughput = self.__parsed["BlockRThroughput"]
+        self.dispatch_width = self.__parsed["DispatchWidth"]
+        self.ipc = self.__parsed["IPC"]
+        self.instructions = self.__parsed["Instructions"]
+        self.iterations = self.__parsed["Iterations"]
+        self.total_uops = self.__parsed["TotaluOps"]
+        self.uops_per_cycle = self.__parsed["uOpsPerCycle"]
+
+    def __repr__(self) -> str:
+        return str(self.__dict__)
 
 
 class TimelineInfo:
     def __init__(self, parsed):
         self.__parsed = vars(parsed)
-        self.__CycleDispatched = self.__parsed["CycleDispatched"]
-        self.__CycleExecuted = self.__parsed["CycleExecuted"]
-        self.__CycleIssued = self.__parsed["CycleIssued"]
-        self.__CycleReady = self.__parsed["CycleReady"]
-        self.__CycleRetired = self.__parsed["CycleRetired"]
+        self.CycleDispatched = self.__parsed["CycleDispatched"]
+        self.CycleExecuted = self.__parsed["CycleExecuted"]
+        self.CycleIssued = self.__parsed["CycleIssued"]
+        self.CycleReady = self.__parsed["CycleReady"]
+        self.CycleRetired = self.__parsed["CycleRetired"]
+
+    def __repr__(self) -> str:
+        return str(self.__dict__)
 
 
 class TimelineView:
     def __init__(self, parsed):
         self.__parsed = vars(parsed)
-        self.__timeline_infos = [TimelineInfo(a) for a in self.__parsed["TimelineInfo"]]
+        self.timeline_infos = [TimelineInfo(a) for a in self.__parsed["TimelineInfo"]]
+
+    def __repr__(self) -> str:
+        return str(self.__dict__)
 
 
 class LLVM_MCA_Data:
@@ -157,6 +265,8 @@ class LLVM_MCA_Data:
         self.StallInfo = StallDispatchStatistic(cr.DispatchStatistics)
         self.SummaryView = SummaryView(cr.SummaryView)
         self.TimelineView = TimelineView(cr.TimelineView)
+
+        # wrapper around `InstructionInfoView`
         self.Instructions = []
 
         assert len(cr.InstructionInfoView.InstructionList) == \
@@ -164,6 +274,15 @@ class LLVM_MCA_Data:
         for i in range(len(cr.Instructions)):
             self.Instructions.append(Instruction(cr.InstructionInfoView.InstructionList[i],
                                                  cr.Instructions[i]))
+
+    def print_ressource_pressure_by_instruction(self) -> str:
+        """
+        :return
+        """
+        pass
+
+
+
 
     def __str__(self):
         return str(self.parsed_json)
