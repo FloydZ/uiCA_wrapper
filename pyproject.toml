@@ -1,0 +1,27 @@
+[project]
+name = "uICA_wrapper"
+version = "0.1.0"
+description = "A simple wrapper class around uiCA, for easier analysing"
+readme = "README.md"
+requires-python = ">=3.8"
+#license = { text = "MIT" }
+
+authors = [
+  { name = "FloydZ", email = "floyd.zweydinger+github@rub.de" }
+]
+
+maintainers = [
+  { name = "FloydZ", email = "floyd.zweydinger+github@rub.de" }
+]
+
+#dependencies = []
+[tool.setuptools.packages.find]
+where = ["python_mca_wrapper"]
+
+[project.urls]
+"Homepage" = "https://github.com/FloydZ/uICA_wrapper"
+"Repository" = "https://github.com/FloydZ/uICA_wrapper"
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"

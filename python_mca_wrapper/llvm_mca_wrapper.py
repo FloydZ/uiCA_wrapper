@@ -6,7 +6,7 @@ import json
 import tempfile
 import os
 from pathlib import Path
-from typing import Union
+from typing import Tuple, Union, List
 from types import SimpleNamespace
 
 
@@ -14,15 +14,30 @@ class SimulationParameters:
     """wrapper around the output field of `llvm-mca` """
     def __init__(self, parsed):
         """
+        :param parsed: 
         """
         self.__parsed = vars(parsed)
         self.__arch = self.__parsed["-march"]
         self.__cpu = self.__parsed["-mcpu"]
         self.__triple = self.__parsed["-mtriple"]
 
-    def get_arch(self): return self.__arch
-    def get_cpu(self): return self.__cpu
-    def get_triple(self): return self.__triple
+    def get_arch(self):
+        """
+        :return __arch
+        """
+        return self.__arch
+
+    def get_cpu(self):
+        """
+        :return __cpu
+        """
+        return self.__cpu
+
+    def get_triple(self):
+        """
+        :return __triple
+        """
+        return self.__triple
 
     def __str__(self):
         return str(self.__parsed)
@@ -36,7 +51,7 @@ class TargetInfo:
         self.__cpuname = self.__parsed["CPUName"]
         self.__resources = self.__parsed["Resources"]
 
-    def get_resources(self, i: int = None):
+    def get_resources(self, i: Union[int, None] = None):
         if i is not None:
             return self.__resources[i] if i < len(self.__resources) else None
         return self.__resources
@@ -128,7 +143,7 @@ class TimelineView:
 
 class LLVM_MCA_Data:
     """
-
+    :param SimulationParameters
     """
     def __init__(self, parsed_json):
         """
@@ -159,10 +174,12 @@ class LLVM_MCA:
     wrapper around the command `llvm-mca`
     """
     BINARY = "llvm-mca"
+    LLC = "llc"
     ARGS = ["--all-stats", "--all-views", "--bottleneck-analysis", "--json"]
 
-    def __init__(self, file: Union[str, Path]):
+    def __init__(self, file: Union[str, Path]) -> None:
         """
+        :param file:
         """
         self.__file = file if type(file) is str else file.absolute()
         self.__outfile = tempfile.NamedTemporaryFile(suffix=".json").name
@@ -220,6 +237,7 @@ class LLVM_MCA:
 
         assert len(data) > 1
         found = None
+        i = 0
         for i, d in enumerate(data):
             if "Registered Targets:" in d:
                 found = i + 1
@@ -234,7 +252,7 @@ class LLVM_MCA:
             t = re.findall(r'\S+', d)
             assert len(t) > 1
             cpus.append(t[0])
-
+        
         found = None
         for j, d in enumerate(data[i:]):
             if "Registered Targets:" in d:
@@ -246,7 +264,7 @@ class LLVM_MCA:
 
         return cpus
 
-    def __cpu__(self):
+    def __cpu__(self, arch: str = "x86") -> Tuple[List[str], List[str]]:
         """
         returns a list of available cpus and features
         e.g:
@@ -254,7 +272,7 @@ class LLVM_MCA:
         and a list of available cpu features:
             [..., amx-tile, avx, avx2, avx512bf16, ... ]
         """
-        cmd = [LLVM_MCA.BINARY, "-mcpu=help"]
+        cmd = [LLVM_MCA.LLC, f"-march={arch}", "-mcpu=help"]
         p = Popen(cmd, stdin=PIPE, stdout=PIPE, stderr=STDOUT, close_fds=True)
 
         p.wait()
@@ -267,24 +285,37 @@ class LLVM_MCA:
 
         if p.returncode != 0:
             logging.error(cmd, "not available: %s", data)
-            return None
+            return [], []
 
         assert len(data) > 1
-        found = None
+        found = False
         for i, d in enumerate(data):
-            if "Available CPUs:" in d:
-                found = i + 1
+            if "Available CPUs" in d:
+                found = True
 
         if not found:
-            logging.error("not found")
-            return []
+            logging.error("starting point not found")
+            return [], []
 
-        ret = []
-        for d in data[found:]:
+        i = 1
+        data = data[i:]
+        cpus, features = [], []
+        for d in data:
+            i += 1
+            if "Available features" in d: break
+            if len(d) == 0: continue
+
             t = re.findall(r'\S+', d)
-            assert len(t) > 1
-            ret.append(t[0])
-        return ret
+            assert len(t) > 0
+            cpus.append(t[0])
+
+        data = data[i-1:]
+        for d in data:
+            if len(d) == 0: continue
+            t = re.findall(r'\S+', d)
+            assert len(t) > 0
+            features.append(t[0])
+        return cpus, features
 
     def __version__(self):
         """

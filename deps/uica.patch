@@ -1,0 +1,14 @@
+diff --git a/setup.sh b/setup.sh
+index f1f85fd..8764afe 100755
+--- a/setup.sh
++++ b/setup.sh
+@@ -8,6 +8,8 @@ cd ..
+ git submodule deinit -f --all
+ rm -rf .git/modules/*
+ 
+-wget https://www.uops.info/instructions.xml || exit 1
++if [ ! -f ./instructions.xml ]; then
++    wget https://www.uops.info/instructions.xml || exit 1
++fi 
+ ./convertXML.py instructions.xml || exit 1
+ rm instructions.xml
