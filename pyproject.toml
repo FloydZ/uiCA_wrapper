@@ -29,7 +29,10 @@ classifiers = [
 ]
 
 dependencies = [
-    "pytest"
+    "pytest",
+    "plotly",
+    # "pyxed", # not available
+    "capstone"
 ]
 
 [project.urls]
