@@ -6,11 +6,10 @@ from setuptools import setup
 from setuptools.command.install import install
 from setuptools.command.develop import develop
 from setuptools.command.egg_info import egg_info
-import subprocess
 
 
 def custom_command():
-    """ build the needed `AssemblyLine` package """
+    """ build the needed `machine_code_analyzer` package """
     if sys.platform in ['linux']:
         os.system('./build.sh')
 
