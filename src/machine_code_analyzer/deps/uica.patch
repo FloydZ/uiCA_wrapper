@@ -1,14 +1,19 @@
 diff --git a/setup.sh b/setup.sh
-index f1f85fd..8764afe 100755
+index f1f85fd..ca8634a 100755
 --- a/setup.sh
 +++ b/setup.sh
-@@ -8,6 +8,8 @@ cd ..
- git submodule deinit -f --all
- rm -rf .git/modules/*
+@@ -5,9 +5,11 @@ cd XED-to-XML
+ ./mfile.py --opt=2 --no-encoder pymodule || exit 1
+ cp xed.* ..
+ cd ..
+-git submodule deinit -f --all
+-rm -rf .git/modules/*
++#git submodule deinit -f --all
++#rm -rf .git/modules/*
  
 -wget https://www.uops.info/instructions.xml || exit 1
 +if [ ! -f ./instructions.xml ]; then
 +    wget https://www.uops.info/instructions.xml || exit 1
-+fi
++fi 
  ./convertXML.py instructions.xml || exit 1
  rm instructions.xml
