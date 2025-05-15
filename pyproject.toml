@@ -3,7 +3,7 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "uiCA_wrapper"
+name = "machine_code_analyzer"
 version = "0.1.0"
 description = "A simple wrapper class around uiCA and llvm-mca, for easier analysing"
 readme = "README.md"
