@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+""" main wrapper around uiCA """
 
 import sys
 import os
@@ -21,6 +22,7 @@ class uiCA_Wrapper():
 
     def assemble(self, input: str, output: str):
         """
+        TODO test if the assember is available
         assembles a file
         """
         cmd = ["as", input, "-o", output]
