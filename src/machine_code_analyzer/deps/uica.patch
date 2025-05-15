@@ -9,6 +9,6 @@ index f1f85fd..8764afe 100755
 -wget https://www.uops.info/instructions.xml || exit 1
 +if [ ! -f ./instructions.xml ]; then
 +    wget https://www.uops.info/instructions.xml || exit 1
-+fi 
++fi
  ./convertXML.py instructions.xml || exit 1
  rm instructions.xml
