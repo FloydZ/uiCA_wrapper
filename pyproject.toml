@@ -41,7 +41,7 @@ sample = "sample:main"
 
 [tool.setuptools]
 include-package-data = true 
-package-data = { "machine_code_analyzer" = ["./deps/MeasureSuite/ms"] }
+package-data = { "machine_code_analyzer" = ["./deps/uiCA/ms"] }
 [packages.find]
 where = ["src"]
 include = ["deps", "src"]

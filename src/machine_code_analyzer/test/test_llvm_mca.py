@@ -2,7 +2,7 @@
 """ tests for the python_mca_wrapper.py """
 
 import os
-from python_mca_wrapper import LLVM_MCA
+from machine_code_analyzer import LLVM_MCA
 
 
 def test_version():

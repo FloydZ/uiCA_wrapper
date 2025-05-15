@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+""" main wrapper around llvm-mca """
+
 from subprocess import Popen, PIPE, STDOUT
 import logging
 import re
@@ -92,11 +94,18 @@ class TargetInfo:
         self.__resources = self.__parsed["Resources"]
 
     def get_resources(self, i: Union[int, None] = None):
+        """
+        :param i:
+        :return:
+        """
         if i is not None:
             return self.__resources[i] if i < len(self.__resources) else None
         return self.__resources
 
     def get_cpuname(self):
+        """
+        :return the 'cpuname'
+        """
         return self.__cpuname
 
     def __str__(self):
@@ -119,8 +128,6 @@ class StallDispatchStatistic:
     """
     def __init__(self, parsed):
         self.__parsed = vars(parsed)
-        # TODO wa ist das
-
         # stall information: why an instruction was stalled
         # static restrictions on the dispatch group
         self.group = self.__parsed["GROUP"]
@@ -142,16 +149,28 @@ class StallDispatchStatistic:
 
 
 class Instruction:
+    """
+    something like: (part of the `InstructionInfoView`)
+        {
+          "Instruction": 0,
+          "Latency": 3,
+          "NumMicroOpcodes": 1,
+          "RThroughput": 0.5,
+          "hasUnmodeledSideEffects": false,
+          "mayLoad": false,
+          "mayStore": false
+        },
+    """
     def __init__(self, parsed, assembly: str):
         self.__parsed = vars(parsed)
         self.__assembly = assembly
         self.instruction = self.__parsed["Instruction"]
         self.latency = self.__parsed["Latency"]
-        self.NumMicroOpcodes = self.__parsed["NumMicroOpcodes"]
-        self.RThroughput = self.__parsed["RThroughput"]
-        self.hasUnmodeledSideEffects = self.__parsed["hasUnmodeledSideEffects"]
-        self.mayLoad = self.__parsed["mayLoad"]
-        self.mayStore = self.__parsed["mayStore"]
+        self.num_microppcodes = self.__parsed["NumMicroOpcodes"]
+        self.rthroughput = self.__parsed["RThroughput"]
+        self.has_unmodeled_side_effects = self.__parsed["hasUnmodeledSideEffects"]
+        self.may_load = self.__parsed["mayLoad"]
+        self.may_store = self.__parsed["mayStore"]
 
     def __repr__(self) -> str:
         return str(self.__dict__)
@@ -197,7 +216,8 @@ class ResourcePressureView:
     """
     def __init__(self, parsed):
         self.__parsed = vars(parsed)
-        self.resource_pressure_info = [ResourcePressureInfo(a) for a in self.__parsed["ResourcePressureView"]]
+        self.resource_pressure_info = [ResourcePressureInfo(a)
+            for a in self.__parsed["ResourcePressureView"]]
 
 
 class SummaryView:
@@ -228,19 +248,35 @@ class SummaryView:
 
 
 class TimelineInfo:
+    """ something like:
+          {
+            "CycleDispatched": 0,
+            "CycleExecuted": 4,
+            "CycleIssued": 1,
+            "CycleReady": 0,
+            "CycleRetired": 5
+          },
+    """
     def __init__(self, parsed):
         self.__parsed = vars(parsed)
-        self.CycleDispatched = self.__parsed["CycleDispatched"]
-        self.CycleExecuted = self.__parsed["CycleExecuted"]
-        self.CycleIssued = self.__parsed["CycleIssued"]
-        self.CycleReady = self.__parsed["CycleReady"]
-        self.CycleRetired = self.__parsed["CycleRetired"]
+        self.cycle_dispatched = self.__parsed["CycleDispatched"]
+        self.cycle_executed = self.__parsed["CycleExecuted"]
+        self.cycle_issued = self.__parsed["CycleIssued"]
+        self.cycle_ready = self.__parsed["CycleReady"]
+        self.cycle_retired = self.__parsed["CycleRetired"]
 
     def __repr__(self) -> str:
         return str(self.__dict__)
 
 
 class TimelineView:
+    """ something like:
+        [
+            TimelineInfo1,
+            TimelineInfo2,
+            ...
+        ]
+    """
     def __init__(self, parsed):
         self.__parsed = vars(parsed)
         self.timeline_infos = [TimelineInfo(a) for a in self.__parsed["TimelineInfo"]]
@@ -258,31 +294,30 @@ class LLVM_MCA_Data:
         :param_json: output of the `llvm-mca`
         """
         self.parsed_json = parsed_json
-        cr = parsed_json.CodeRegions[0]  # TODO more regions
+        if len(parsed_json.CodeRegions) != 0:
+            raise Exception("only a single region is supported")
+        cr = parsed_json.CodeRegions[0]
 
-        self.SimulationParameters = SimulationParameters(parsed_json.SimulationParameters)
-        self.TargetInfo = TargetInfo(parsed_json.TargetInfo)
-        self.StallInfo = StallDispatchStatistic(cr.DispatchStatistics)
-        self.SummaryView = SummaryView(cr.SummaryView)
-        self.TimelineView = TimelineView(cr.TimelineView)
+        self.simulation_parameters = SimulationParameters(parsed_json.SimulationParameters)
+        self.target_info = TargetInfo(parsed_json.TargetInfo)
+        self.stall_info = StallDispatchStatistic(cr.DispatchStatistics)
+        self.summary_view = SummaryView(cr.SummaryView)
+        self.timeline_view = TimelineView(cr.TimelineView)
 
         # wrapper around `InstructionInfoView`
-        self.Instructions = []
+        self.instructions = []
 
         assert len(cr.InstructionInfoView.InstructionList) == \
                len(cr.Instructions)
         for i in range(len(cr.Instructions)):
-            self.Instructions.append(Instruction(cr.InstructionInfoView.InstructionList[i],
+            self.instructions.append(Instruction(cr.InstructionInfoView.InstructionList[i],
                                                  cr.Instructions[i]))
 
     def print_ressource_pressure_by_instruction(self) -> str:
         """
         :return
         """
-        pass
-
-
-
+        raise NotImplementedError
 
     def __str__(self):
         return str(self.parsed_json)
@@ -300,7 +335,7 @@ class LLVM_MCA:
         """
         :param file:
         """
-        self.__file = file if type(file) is str else file.absolute()
+        self.__file = file.absolute() if isinstance(file, Path) else file
         self.__outfile = tempfile.NamedTemporaryFile(suffix=".json").name
         if os.path.isfile(self.__outfile):
             self.execute()
@@ -310,20 +345,20 @@ class LLVM_MCA:
         NOTE: writes the result into a file
         """
         cmd = [LLVM_MCA.BINARY] + LLVM_MCA.ARGS + [self.__file] + ["-o", self.__outfile]
-        p = Popen(cmd, stdin=PIPE, stdout=PIPE, stderr=STDOUT)
-        while p.returncode is None:
-            p.poll()
-        assert p.stdout
+        with Popen(cmd, stdin=PIPE, stdout=PIPE, stderr=STDOUT) as p:
+            while p.returncode is None:
+                p.poll()
+            assert p.stdout
 
-        if p.returncode != 0 and p.returncode is not None:
-            data = p.stdout.read()
-            data = str(data).replace("b'", "").replace("\\n'", "").lstrip()
-            logging.error("couldn't execute:" + data)
-            return None
+            if p.returncode != 0 and p.returncode is not None:
+                data = p.stdout.read()
+                data = str(data).replace("b'", "").replace("\\n'", "").lstrip()
+                logging.error(f"couldn't execute: {data}")
+                return None
 
-        with open(self.__outfile) as f:
-            data = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
-            return LLVM_MCA_Data(data)
+            with open(self.__outfile, "r", encoding="utf-8") as f:
+                data = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
+                return LLVM_MCA_Data(data)
 
     def __arch__(self):
         """
@@ -340,21 +375,22 @@ class LLVM_MCA:
             ]
         """
         cmd = [LLVM_MCA.BINARY, "--version"]
-        p = Popen(cmd, stdin=PIPE, stdout=PIPE, stderr=STDOUT, close_fds=True)
+        data = []
+        with Popen(cmd, stdin=PIPE, stdout=PIPE, stderr=STDOUT,
+                   close_fds=True) as p:
+            p.wait()
+            assert p.stdout
 
-        p.wait()
-        assert p.stdout
+            data = p.stdout.readlines()
+            data = [str(a).replace("b'", "")
+                          .replace("\\n'", "")
+                          .lstrip() for a in data]
 
-        data = p.stdout.readlines()
-        data = [str(a).replace("b'", "")
-                      .replace("\\n'", "")
-                      .lstrip() for a in data]
+            if p.returncode != 0:
+                logging.error(cmd, "not available: %s", data)
+                return None, None
 
-        if p.returncode != 0:
-            logging.error(cmd, "not available: %s", data)
-            return None, None
-
-        assert len(data) > 1
+            assert len(data) > 1
         found = None
         i = 0
         for i, d in enumerate(data):
@@ -371,7 +407,7 @@ class LLVM_MCA:
             t = re.findall(r'\S+', d)
             assert len(t) > 1
             cpus.append(t[0])
-        
+
         found = None
         for j, d in enumerate(data[i:]):
             if "Registered Targets:" in d:
@@ -392,21 +428,22 @@ class LLVM_MCA:
             [..., amx-tile, avx, avx2, avx512bf16, ... ]
         """
         cmd = [LLVM_MCA.LLC, f"-march={arch}", "-mcpu=help"]
-        p = Popen(cmd, stdin=PIPE, stdout=PIPE, stderr=STDOUT, close_fds=True)
+        data = []
+        with Popen(cmd, stdin=PIPE, stdout=PIPE, stderr=STDOUT,
+                   close_fds=True) as p:
+            p.wait()
+            assert p.stdout
 
-        p.wait()
-        assert p.stdout
+            data = p.stdout.readlines()
+            data = [str(a).replace("b'", "")
+                    .replace("\\n'", "")
+                    .lstrip() for a in data]
 
-        data = p.stdout.readlines()
-        data = [str(a).replace("b'", "")
-                .replace("\\n'", "")
-                .lstrip() for a in data]
+            if p.returncode != 0:
+                logging.error(cmd, "not available: %s", data)
+                return [], []
 
-        if p.returncode != 0:
-            logging.error(cmd, "not available: %s", data)
-            return [], []
-
-        assert len(data) > 1
+            assert len(data) > 1
         found = False
         for i, d in enumerate(data):
             if "Available CPUs" in d:
@@ -421,8 +458,10 @@ class LLVM_MCA:
         cpus, features = [], []
         for d in data:
             i += 1
-            if "Available features" in d: break
-            if len(d) == 0: continue
+            if "Available features" in d:
+                break
+            if len(d) == 0:
+                continue
 
             t = re.findall(r'\S+', d)
             assert len(t) > 0
@@ -430,7 +469,8 @@ class LLVM_MCA:
 
         data = data[i-1:]
         for d in data:
-            if len(d) == 0: continue
+            if len(d) == 0:
+                continue
             t = re.findall(r'\S+', d)
             assert len(t) > 0
             features.append(t[0])
@@ -442,26 +482,25 @@ class LLVM_MCA:
         otherwise `None`
         """
         cmd = [LLVM_MCA.BINARY, "--version"]
-        p = Popen(cmd, stdin=PIPE, stdout=PIPE, stderr=STDOUT, close_fds=True)
+        with Popen(cmd, stdin=PIPE, stdout=PIPE, stderr=STDOUT,
+                   close_fds=True) as p:
+            p.wait()
+            assert p.stdout
 
-        p.wait()
-        assert p.stdout
+            data = p.stdout.readlines()
+            data = [str(a).replace("b'", "")
+                          .replace("\\n'", "")
+                          .lstrip() for a in data]
 
-        data = p.stdout.readlines()
-        data = [str(a).replace("b'", "")
-                      .replace("\\n'", "")
-                      .lstrip() for a in data]
+            if p.returncode != 0:
+                logging.error(cmd, "not available: %s", data)
+                return None
 
-        if p.returncode != 0:
-            logging.error(cmd, "not available: %s", data)
-            return None
-
-        assert len(data) > 1
-        for d in data:
-            if "LLVM version" in d:
-                ver = re.findall(r'\d.\d+.\d', d)
-                assert len(ver) == 1
-                return ver[0]
+            assert len(data) > 1
+            for d in data:
+                if "LLVM version" in d:
+                    ver = re.findall(r'\d.\d+.\d', d)
+                    assert len(ver) == 1
+                    return ver[0]
 
         return None
-

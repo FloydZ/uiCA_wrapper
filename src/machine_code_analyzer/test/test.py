@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-from uica_wrapper import uiCA_Wrapper
+""" tests for uica """
+
+from machine_code_analyzer.uica_wrapper import uiCA_Wrapper
 
 
 def test1():
