@@ -360,7 +360,8 @@ class TimelineView:
         self.__parsed = vars(parsed)
         self.timeline_infos = [TimelineInfo(a) for a in self.__parsed["TimelineInfo"]]
     
-    def print(self, instructions=None, max_cycles=80, iterations=30):
+    def print(self,
+              instructions: List[Instruction]) -> str:
         """Print formatted timeline view similar to the requested format
         
         :param instructions: List of instruction objects
@@ -370,7 +371,51 @@ class TimelineView:
         """
         if not self.timeline_infos:
             return "No timeline data available"
-        # TODO
+       
+        num_infos = len(self.timeline_infos)
+        num_instr = len(instructions)
+        max_retire = max([t.cycle_retired for t in self.timeline_infos]) + 1
+        iters = num_infos // num_instr
+    
+        # print(num_instr, max_retire, iters, num_infos)
+        matrix = [[" " for _ in range(max_retire)] for _ in range(num_infos)]
+        for i in range(num_infos):
+            matrix[i][-1] = "."
+            for j in range(0, max_retire, 5):
+                matrix[i][j] = "."
+        
+        ctr = 0
+        for _ in range(iters):
+            for info in self.timeline_infos:
+                if ctr >= num_infos:
+                    continue
+                d, i, e, r = info.cycle_dispatched, info.cycle_issued,\
+                             info.cycle_executed, info.cycle_retired
+
+                # print(ctr, len(matrix), r, max_retire)
+                matrix[ctr][d] = "D"
+                matrix[ctr][e] = "E"
+                matrix[ctr][r] = "R"
+                for j in range(d + 1, i):
+                    matrix[ctr][j] = "="
+                for j in range(i, e):
+                    matrix[ctr][j] = "e"
+                for j in range(e+1, r):
+                    matrix[ctr][j] = "-"
+                ctr += 1
+
+        r = ""
+        t = ["".join(t) for t in matrix]
+        ctr = 0 
+        for line_ in t:
+            a = ctr // num_instr
+            b = ctr % num_instr
+            instr = instructions[b].name()
+            line = f"[{a},{b}]\t{line_}\t{instr}\n"
+            ctr += 1 
+            r += line
+
+        return r
 
     def __repr__(self) -> str:
         return str(self.__dict__)
