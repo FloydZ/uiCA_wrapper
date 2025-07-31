@@ -19,6 +19,10 @@ let
     pythonPackages.pylint
     pythonPackages.setuptools
 
+    # needed for the uICA subpackage
+    #pythonPackages.xed
+    #pythonPackages.facile
+
     # building uica
     clang
     llvm

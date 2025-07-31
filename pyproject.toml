@@ -30,8 +30,11 @@ classifiers = [
 
 dependencies = [
     "pytest",
+
+    # needed for uICA submodule
     "plotly",
-    # "pyxed", # not available
+    "xed", 
+    "facile", 
     "capstone"
 ]
 

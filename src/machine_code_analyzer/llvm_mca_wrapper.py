@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Tuple, Union, List
 from types import SimpleNamespace
 
+from machine_code_analyzer.common import parse_output_lines
 
 class SimulationParameters:
     """wrapper around the output field of `llvm-mca` 
@@ -73,30 +74,32 @@ class TargetInfo:
             "Zn4FP1",
             "Zn4FP2",
             "Zn4FP3",
-            "Zn4FP45.\u0000",
-            "Zn4FP45.\u0001",
+            "Zn4FP45.0",
+            "Zn4FP45.1",
             "Zn4FPSt",
-            "Zn4LSU.\u0000",
-            "Zn4LSU.\u0001",
-            "Zn4LSU.\u0002",
-            "Zn4Load.\u0000",
-            "Zn4Load.\u0001",
-            "Zn4Load.\u0002",
-            "Zn4Store.\u0000",
-            "Zn4Store.\u0001"
+            "Zn4LSU.0",
+            "Zn4LSU.1",
+            "Zn4LSU.2",
+            "Zn4Load.0",
+            "Zn4Load.1",
+            "Zn4Load.2",
+            "Zn4Store.0",
+            "Zn4Store.1"
         ]
     }
     """
     def __init__(self, parsed):
-        """ """
+        """Initialize TargetInfo with parsed data
+        :param parsed: Parsed JSON data containing CPU name and resources
+        """
         self.__parsed = vars(parsed)
         self.__cpuname = self.__parsed["CPUName"]
         self.__resources = self.__parsed["Resources"]
 
     def get_resources(self, i: Union[int, None] = None):
-        """
-        :param i:
-        :return:
+        """Get resources available for the target CPU
+        :param i: Optional index to retrieve a specific resource
+        :return: List of all resources or a specific resource if index is provided
         """
         if i is not None:
             return self.__resources[i] if i < len(self.__resources) else None
@@ -116,10 +119,13 @@ class TargetInfo:
 
 
 class StallDispatchStatistic:
-    """
-
-    :param group:
-    :param lq: load queue
+    """Represents statistics about different types of dispatch stalls
+    
+    This class provides information about why instructions were stalled during dispatch
+    and counts of each stall type.
+    
+    :param group: static restrictions on the dispatch group
+    :param lq: load queue full
     :param rat: register unavailable
     :param rcu: retire tokens unavailable
     :param schedq: scheduler full
@@ -149,8 +155,13 @@ class StallDispatchStatistic:
 
 
 class Instruction:
-    """
-    something like: (part of the `InstructionInfoView`)
+    """Represents a single instruction with its performance characteristics
+
+    Contains instruction performance data from the InstructionInfoView such as
+    latency, throughput, and resource usage. Each instruction is associated with
+    its assembly representation.
+    
+    Example JSON structure (part of the `InstructionInfoView`):
         {
           "Instruction": 0,
           "Latency": 3,
@@ -171,6 +182,13 @@ class Instruction:
         self.has_unmodeled_side_effects = self.__parsed["hasUnmodeledSideEffects"]
         self.may_load = self.__parsed["mayLoad"]
         self.may_store = self.__parsed["mayStore"]
+    
+    def name(self) -> str:
+        """Return the assembly representation of this instruction
+        
+        :return: Assembly string for this instruction
+        """
+        return self.__assembly
 
     def __repr__(self) -> str:
         return str(self.__dict__)
@@ -196,8 +214,12 @@ class ResourcePressureInfo:
 
 
 class ResourcePressureView:
-    """
-    Something like this
+    """Represents resource usage pressure for instructions
+    
+    Contains information about how each instruction uses specific CPU resources,
+    with details about which resources are used and their usage rates.
+    
+    Example JSON structure:
     "ResourcePressureView": {
         "ResourcePressureInfo": [
             {
@@ -218,7 +240,64 @@ class ResourcePressureView:
         self.__parsed = vars(parsed)
         self.resource_pressure_info = [ResourcePressureInfo(a)
             for a in self.__parsed["ResourcePressureView"]]
-
+    
+    def print(self, target_info=None):
+        """Print formatted resource pressure information in a graph format similar to llvm-mca
+        
+        :param target_info: Optional TargetInfo object to get resource names
+        :return: String containing the formatted graph
+        """
+        # Group by instruction index
+        instructions = {}
+        for info in self.resource_pressure_info:
+            if info.instruction_index not in instructions:
+                instructions[info.instruction_index] = []
+            instructions[info.instruction_index].append(info)
+        
+        # Create headers
+        resource_names = []
+        if target_info:
+            resource_names = target_info.get_resources()
+        else:
+            # Determine max resource index
+            max_resource = 0
+            for info in self.resource_pressure_info:
+                max_resource = max(max_resource, info.resource_index)
+            resource_names = [f"Resource{i}" for i in range(max_resource + 1)]
+        
+        # Create header row
+        header = "Instruction".ljust(30) + " | "
+        header += " | ".join(name.ljust(8) for name in resource_names)
+        
+        # Create separator
+        separator = "-" * len(header)
+        
+        # Create rows
+        rows = [header, separator]
+        
+        for instr_idx in sorted(instructions.keys()):
+            row = f"Instruction {instr_idx}".ljust(30) + " | "
+            
+            # Create usage map
+            usage_map = {info.resource_index: info.resource_usage for info in instructions[instr_idx]}
+            
+            # Add usage values
+            values = []
+            for i, _ in enumerate(resource_names):
+                usage = usage_map.get(i, 0)
+                if usage == 0:
+                    values.append(" " * 8)
+                else:
+                    # Format with appropriate precision
+                    if usage.is_integer():
+                        values.append(f"{int(usage)}".ljust(8))
+                    else:
+                        values.append(f"{usage:.1f}".ljust(8))
+            
+            row += " | ".join(values)
+            rows.append(row)
+            
+        return "\n".join(rows)
 
 class SummaryView:
     """
@@ -280,6 +359,18 @@ class TimelineView:
     def __init__(self, parsed):
         self.__parsed = vars(parsed)
         self.timeline_infos = [TimelineInfo(a) for a in self.__parsed["TimelineInfo"]]
+    
+    def print(self, instructions=None, max_cycles=80, iterations=30):
+        """Print formatted timeline view similar to the requested format
+        
+        :param instructions: List of instruction objects
+        :param max_cycles: Maximum number of cycles to display
+        :param iterations: Number of iterations to display
+        :return: String containing the formatted timeline
+        """
+        if not self.timeline_infos:
+            return "No timeline data available"
+        # TODO
 
     def __repr__(self) -> str:
         return str(self.__dict__)
@@ -294,8 +385,10 @@ class LLVM_MCA_Data:
         :param_json: output of the `llvm-mca`
         """
         self.parsed_json = parsed_json
-        if len(parsed_json.CodeRegions) != 0:
+        # TODO
+        if len(parsed_json.CodeRegions) != 1:
             raise Exception("only a single region is supported")
+
         cr = parsed_json.CodeRegions[0]
 
         self.simulation_parameters = SimulationParameters(parsed_json.SimulationParameters)
@@ -487,10 +580,7 @@ class LLVM_MCA:
             p.wait()
             assert p.stdout
 
-            data = p.stdout.readlines()
-            data = [str(a).replace("b'", "")
-                          .replace("\\n'", "")
-                          .lstrip() for a in data]
+            data = parse_output_lines(p.stdout.readlines())
 
             if p.returncode != 0:
                 logging.error(cmd, "not available: %s", data)

@@ -27,3 +27,6 @@ jobs:
 
     - name: Build dependencies
       run: ./build.sh
+
+    - name: run pytest
+      run: pytest src/machine_code_analyzer/test/*.py
